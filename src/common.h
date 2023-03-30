@@ -1,19 +1,25 @@
-// contributor license agreements.  See the NOTICE file distributed with
-// this work for additional information regarding copyright ownership.
-// The ASF licenses this file to You under the Apache License, Version 2.0
-// (the "License"); you may not use this file except in compliance with
-// the License.  You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * Copyright 2021 SkyAPM
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 
 #ifndef SKYWALKING_COMMON_H
 #define SKYWALKING_COMMON_H
+
+#include <boost/interprocess/ipc/message_queue.hpp>
 
 #ifdef __cplusplus
 #define SKY_BEGIN_EXTERN_C() extern "C" {
@@ -26,15 +32,9 @@
 struct service_info {
     char service[0x400];
     char service_instance[0x400];
-    int sem_id;
+    char mq_name[32];
 
-    pthread_mutex_t cond_mx;
-    pthread_mutex_t mx;
-    pthread_cond_t cond;
-
-    char message[0x400000];
-
-    bool real_exit;
+    boost::interprocess::message_queue *mq;
 };
 
 #endif //SKYWALKING_COMMON_H

@@ -1,19 +1,24 @@
-// contributor license agreements.  See the NOTICE file distributed with
-// this work for additional information regarding copyright ownership.
-// The ASF licenses this file to You under the Apache License, Version 2.0
-// (the "License"); you may not use this file except in compliance with
-// the License.  You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * Copyright 2021 SkyAPM
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 
 #include <regex>
 #include "sky_pdo.h"
+#include "sky_utils.h"
 
 #include "segment.h"
 
@@ -25,7 +30,11 @@ Span *sky_pdo(zend_execute_data *execute_data, const std::string &class_name, co
         if (function_name == "exec" || function_name == "query" ||
             function_name == "prepare" || function_name == "commit" ||
             function_name == "begintransaction" || function_name == "rollback") {
-            auto *segment = static_cast<Segment *>(SKYWALKING_G(segment));
+            auto *segment = sky_get_segment(execute_data, -1);
+            if (segment->skip()) {
+                return nullptr;
+            }
+
             auto *span = segment->createSpan(SkySpanType::Exit, SkySpanLayer::Database, 8003);
             span->setOperationName(class_name + "->" + function_name);
 
@@ -44,7 +53,11 @@ Span *sky_pdo(zend_execute_data *execute_data, const std::string &class_name, co
         }
     } else {
         if (function_name == "execute") {
-            auto *segment = static_cast<Segment *>(SKYWALKING_G(segment));
+            auto *segment = sky_get_segment(execute_data, -1);
+            if (segment->skip()) {
+                return nullptr;
+            }
+
             auto *span = segment->createSpan(SkySpanType::Exit, SkySpanLayer::Database, 8003);
             span->setOperationName(class_name + "->" + function_name);
 
@@ -113,4 +126,19 @@ std::string sky_pdo_dbh_peer(Span *span, pdo_dbh_t *dbh) {
         return host + ":" + port;
     }
     return nullptr;
+}
+
+void sky_pdo_check_errors(zend_execute_data *execute_data, Span *span) {    
+    zval *obj = &(execute_data)->This, property, return_ptr;
+    ZVAL_STRING(&property, "errorInfo");
+    
+    call_user_function(CG(function_table), obj, &property, &return_ptr, 0, nullptr);
+    if (Z_TYPE(return_ptr) == IS_ARRAY) {
+        span->pushLog(new SkyCoreSpanLog("SQLSTATE", Z_STRVAL_P(zend_hash_index_find(Z_ARRVAL(return_ptr), 0))));
+        span->pushLog(new SkyCoreSpanLog("Error Code", std::to_string(Z_LVAL_P(zend_hash_index_find(Z_ARRVAL(return_ptr), 1)))));
+        span->pushLog(new SkyCoreSpanLog("Error", Z_STRVAL_P(zend_hash_index_find(Z_ARRVAL(return_ptr), 2))));
+    }
+
+    zval_dtor(&return_ptr);
+    zval_dtor(&property);
 }

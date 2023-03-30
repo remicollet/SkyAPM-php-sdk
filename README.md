@@ -14,34 +14,41 @@ SkyAPM PHP
 
 **SkyAPM PHP** is the PHP instrumentation agent, which is compatible with [Apache SkyWalking](https://github.com/apache/skywalking) backend and others compatible agents/SDKs
 
-
-## Documents
-* [Documents in English](docs/README.md)
-
-## Docker image
-Go to Docker hub -> [https://hub.docker.com/r/skyapm/skywalking-php](https://hub.docker.com/r/skyapm/skywalking-php)
-```shell script
-docker run -d -e SW_OAP_ADDRESS=127.0.0.1:11800 skywalking-php
-```
-
-## Live Demo
-Host in Beijing. Go to [demo](http://106.75.237.45:8080/).
-- Username: admin
-- Password: admin
-
-**Video on youtube.com**
-
-[![RocketBot UI](http://img.youtube.com/vi/JC-Anlshqx8/0.jpg)](http://www.youtube.com/watch?v=JC-Anlshqx8)
-
 ## Support List
 1. CURL
 1. PDO
 1. Mysqli
-1. Yar Client ([Yar](https://www.php.net/manual/en/book.yar.php))
+1. Yar Client (version > 2.0.4) ([Yar](https://www.php.net/manual/en/book.yar.php))
+1. Yar Server ([Yar](https://www.php.net/manual/en/book.yar.php))
 1. GRPC Client ([GRPC](https://github.com/grpc/grpc-php))
 1. Predis Client ([Predis](https://packagist.org/packages/predis/predis))
 1. Redis Extension ([Redis Extension](https://github.com/phpredis/phpredis))
-1. Memcache Extension
+1. Memcache Extension ([Memcache Extension](https://www.php.net/manual/en/book.memcached.php))
+1. RabbitMQ
+1. Swoole ([Swoole](https://github.com/swoole/swoole-src))
+1. Hyperf ([Hyperf](https://github.com/hyperf/hyperf))
+1. Swoft ([Swoft](https://github.com/swoft-cloud/swoft))
+1. Tars-php ([Tars-php](https://github.com/TarsPHP/TarsPHP))
+1. LaravelS ([LaravelS](https://github.com/hhxsv5/laravel-s))
+
+## Documents
+* [Documents in English](docs/README.md)
+
+## Docker image (Quick start)
+Go to Docker hub -> [https://hub.docker.com/u/skyapm](https://hub.docker.com/u/skyapm)
+```shell script
+docker run -d -e SW_OAP_ADDRESS=127.0.0.1:11800 skyapm/skywalking-php-8.0-fpm-alpine
+```
+
+## Downloads
+Please head to the [releases page](https://pecl.php.net/package/skywalking) to download a release of SkyAPM PHP.
+
+## Live Demo
+Find the [demo](https://skywalking.apache.org/#demo) and [screenshots](https://skywalking.apache.org/#arch) on our website.
+
+**Video on youtube.com**
+
+[![RocketBot UI](http://img.youtube.com/vi/mfKaToAKl7k/0.jpg)](http://www.youtube.com/watch?v=mfKaToAKl7k)
 
 ## Contact Us
 * Submit an [issue](https://github.com/SkyAPM/SkyAPM-php-sdk/issues)

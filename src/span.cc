@@ -1,22 +1,26 @@
-// contributor license agreements.  See the NOTICE file distributed with
-// this work for additional information regarding copyright ownership.
-// The ASF licenses this file to You under the Apache License, Version 2.0
-// (the "License"); you may not use this file except in compliance with
-// the License.  You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * Copyright 2021 SkyAPM
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 
 #include "span.h"
+#include "sky_core_span_log.h"
 
-#include <ctime>
-#include <chrono>
 #include <iostream>
+#include <sky_utils.h>
 
 Span::Span() {
     startTime = getUnixTimeStamp();
@@ -25,8 +29,23 @@ Span::Span() {
 }
 
 Span::~Span() {
+    for (auto ref : refs) {
+        delete ref;
+    }
+    refs.clear();
+    refs.shrink_to_fit();
+
+    for (auto tag : tags) {
+        delete tag;
+    }
     tags.clear();
     tags.shrink_to_fit();
+
+    for (auto log : logs) {
+        delete log;
+    }
+    logs.clear();
+    logs.shrink_to_fit();
 }
 
 // get
@@ -46,15 +65,15 @@ long Span::getEndTime() const {
     return endTime;
 }
 
-std::vector<SkySegmentReference *> Span::getRefs() {
+const std::vector<SkySegmentReference*>& Span::getRefs() {
     return refs;
 }
 
-std::string Span::getOperationName() {
+const std::string& Span::getOperationName() {
     return operationName;
 }
 
-std::string Span::getPeer() {
+const std::string& Span::getPeer() {
     return peer;
 }
 
@@ -74,14 +93,17 @@ bool Span::getIsError() const {
     return isError;
 }
 
-std::vector<Tag *> Span::getTags() {
+const std::vector<Tag*>& Span::getTags() {
     return tags;
+}
+
+const std::vector<SkyCoreSpanLog*>& Span::getLogs() {
+    return logs;
 }
 
 bool Span::getSkipAnalysis() const {
     return skipAnalysis;
 }
-
 
 // set
 void Span::setEndTIme() {
@@ -124,16 +146,18 @@ void Span::pushTag(Tag *tag) {
     tags.push_back(tag);
 }
 
+void Span::pushLog(SkyCoreSpanLog *log) {
+    logs.push_back(log);
+}
+
 void Span::addTag(const std::string &key, const std::string &value) {
     tags.push_back(new Tag(key, value));
 }
 
-void Span::pushRefs(SkySegmentReference *ref) {
-    refs.push_back(ref);
+void Span::addLog(const std::string &key, const std::string &value) {
+    logs.push_back(new SkyCoreSpanLog(key, value));
 }
 
-long Span::getUnixTimeStamp() {
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::system_clock::now().time_since_epoch());
-    return ms.count();
+void Span::pushRefs(SkySegmentReference *ref) {
+    refs.push_back(ref);
 }

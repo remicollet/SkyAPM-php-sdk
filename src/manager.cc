@@ -1,17 +1,21 @@
-// Licensed to the Apache Software Foundation (ASF) under one or more
-// contributor license agreements.  See the NOTICE file distributed with
-// this work for additional information regarding copyright ownership.
-// The ASF licenses this file to You under the Apache License, Version 2.0
-// (the "License"); you may not use this file except in compliance with
-// the License.  You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * Copyright 2021 SkyAPM
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+
 
 #include "manager.h"
 #include <thread>
@@ -32,10 +36,11 @@
 #include <google/protobuf/util/json_util.h>
 #include "common.h"
 #include "sky_shm.h"
+#include <boost/interprocess/ipc/message_queue.hpp>
 
 #include "php_skywalking.h"
+#include "sky_log.h"
 
-static std::ofstream sky_log;
 std::queue<std::string> messageQueue;
 static pthread_mutex_t mx = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
@@ -43,22 +48,20 @@ static pthread_mutex_t cond_mx = PTHREAD_MUTEX_INITIALIZER;
 
 extern struct service_info *s_info;
 
-Manager::Manager(const ManagerOptions &options, struct service_info *info) {
+static std::string fixed_uuid;
 
-    if (SKYWALKING_G(log_enable)) {
-        sky_log.open(SKYWALKING_G(log_path), std::ios::app);
+void Manager::init(const ManagerOptions &options, struct service_info *info) {
+    if (!options.instance_name.empty()) {
+        fixed_uuid = options.instance_name;
     }
 
     std::thread th(login, options, info);
     th.detach();
 
-    std::thread c(consumer);
+    std::thread c(consumer, options);
     c.detach();
 
-    std::thread s(sender, options);
-    s.detach();
-
-    logger("the apache skywalking php plugin mounted");
+    sky_log("the apache skywalking php plugin mounted");
 }
 
 void Manager::login(const ManagerOptions &options, struct service_info *info) {
@@ -72,6 +75,9 @@ void Manager::login(const ManagerOptions &options, struct service_info *info) {
         grpc::ClientContext context;
         InstanceProperties properties;
         Commands commands;
+        if (!options.authentication.empty()) {
+            context.AddMetadata("authentication", options.authentication);
+        }
 
         auto ips = getIps();
 
@@ -129,7 +135,9 @@ void Manager::login(const ManagerOptions &options, struct service_info *info) {
         grpc::ClientContext context;
         InstancePingPkg ping;
         Commands commands;
-
+        if (!options.authentication.empty()) {
+            context.AddMetadata("authentication", options.authentication);
+        }
         ping.set_service(options.code);
         ping.set_serviceinstance(serviceInstance);
 
@@ -139,59 +147,28 @@ void Manager::login(const ManagerOptions &options, struct service_info *info) {
     }
 }
 
-void Manager::consumer() {
-    while (true) {
-        pthread_mutex_lock(&s_info->cond_mx);
-        pthread_cond_wait(&s_info->cond, &s_info->cond_mx);
-        pthread_mutex_unlock(&s_info->cond_mx);
-
-        if (s_info->sem_id != -1) {
-            sky_sem_p(s_info->sem_id);
-            std::string full(s_info->message);
-            s_info->message[0] = '\0';
-            sky_sem_v(s_info->sem_id);
-
-            if (full.length() > 0) {
-                pthread_mutex_lock(&mx);
-                messageQueue.push(full);
-                pthread_mutex_unlock(&mx);
-
-                pthread_mutex_lock(&cond_mx);
-                pthread_cond_signal(&cond);
-                pthread_mutex_unlock(&cond_mx);
-            }
-        }
-    }
-}
-
-[[noreturn]] void Manager::sender(const ManagerOptions &options) {
-
+[[noreturn]] void Manager::consumer(const ManagerOptions &options) {
     while (true) {
         std::shared_ptr<grpc::Channel> channel(grpc::CreateChannel(options.grpc, getCredentials(options)));
         std::unique_ptr<TraceSegmentReportService::Stub> stub(TraceSegmentReportService::NewStub(channel));
         grpc::ClientContext context;
         Commands commands;
 
-        bool is_break = false;
-
-        logger("connect report service");
+        if (!options.authentication.empty()) {
+            context.AddMetadata("authentication", options.authentication);
+        }
         auto writer = stub->collect(&context, &commands);
 
-        while (true) {
+        try {
+            boost::interprocess::message_queue mq(boost::interprocess::open_only, s_info->mq_name);
 
-            if (is_break) {
-                break;
-            }
-
-            pthread_mutex_lock(&cond_mx);
-            pthread_cond_wait(&cond, &cond_mx);
-            pthread_mutex_unlock(&cond_mx);
-
-            while (!messageQueue.empty()) {
-                pthread_mutex_lock(&mx);
-                std::string data = messageQueue.front();
-                messageQueue.pop();
-                pthread_mutex_unlock(&mx);
+            while (true) {
+                std::string data;
+                data.resize(SKYWALKING_G(mq_max_message_length));
+                size_t msg_size;
+                unsigned msg_priority;
+                mq.receive(&data[0], data.size(), msg_size, msg_priority);
+                data.resize(msg_size);
 
                 std::string json_str;
                 SegmentObject msg;
@@ -202,14 +179,15 @@ void Manager::consumer() {
                 google::protobuf::util::MessageToJsonString(msg, &json_str, opt);
                 bool status = writer->Write(msg);
                 if (status) {
-                    logger("write success");
+                    sky_log("write success " + json_str);
                 } else {
-                    logger("write fail");
-                    is_break = true;
+                    sky_log("write fail " + json_str);
                     break;
                 }
-                logger(json_str);
             }
+        } catch (boost::interprocess::interprocess_exception &ex) {
+            sky_log(ex.what());
+            php_error(E_WARNING, "%s %s", "[skywalking] open queue fail ", ex.what());
         }
     }
 }
@@ -260,6 +238,10 @@ std::shared_ptr<grpc::ChannelCredentials> Manager::getCredentials(const ManagerO
 
 std::string Manager::generateUUID() {
 
+    if (!fixed_uuid.empty()) {
+        return fixed_uuid;
+    }
+
     static std::random_device dev;
     static std::mt19937 rng(dev());
     std::uniform_int_distribution<int> dist(0, 15);
@@ -275,11 +257,4 @@ std::string Manager::generateUUID() {
     }
 
     return res;
-}
-
-
-void Manager::logger(const std::string &log) {
-    if (SKYWALKING_G(log_enable) && sky_log.is_open()) {
-        sky_log << log << std::endl;
-    }
 }
