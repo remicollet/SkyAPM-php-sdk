@@ -20,7 +20,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "sky_util_php.h"
-#include "ext/standard/php_smart_string.h"
 
 sky_core_tag_t *sky_core_tag_new(char *key, char *value) {
     sky_core_tag_t *tag = (sky_core_tag_t *) emalloc(sizeof(sky_core_tag_t));

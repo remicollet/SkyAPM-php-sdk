@@ -19,7 +19,6 @@
 #include "sky_plugin_redis.h"
 #include "sky_util_php.h"
 #include "sky_utils.h"
-#include "ext/standard/php_smart_string.h"
 
 // strings
 zif_handler origin_redis_append = NULL;

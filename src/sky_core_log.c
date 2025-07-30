@@ -20,7 +20,6 @@
 #include "php.h"
 #include <sys/time.h>
 #include "sky_util_php.h"
-#include "ext/standard/php_smart_string.h"
 
 sky_core_log_t *sky_core_log_new() {
     sky_core_log_t *log = (sky_core_log_t *) emalloc(sizeof(sky_core_log_t));

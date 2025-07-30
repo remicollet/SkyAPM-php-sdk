@@ -23,7 +23,7 @@
 #include "sky_core_cross_process.h"
 #include "sky_core_segment_reference.h"
 #include "sky_core_report.h"
-#include "ext/standard/php_smart_string.h"
+#include "sky_util_php.h"
 
 sky_core_segment_t *sky_core_segment_new(char *protocol) {
     sky_core_segment_t *segment = (sky_core_segment_t *) emalloc(sizeof(sky_core_segment_t));

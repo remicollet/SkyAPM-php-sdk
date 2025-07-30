@@ -27,7 +27,12 @@ typedef void (*zif_handler)(INTERNAL_FUNCTION_PARAMETERS);
 
 #endif
 
+
+#if PHP_VERSION_ID < 70200
 #include "ext/standard/php_smart_string.h"
+#else
+#include "Zend/zend_smart_string.h"
+#endif
 
 void *sky_util_find_obj_func(const char *obj, const char *name);
 
